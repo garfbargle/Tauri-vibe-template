@@ -1,0 +1,121 @@
+:root {
+  color-scheme: light dark;
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  --bg: #0b1020;
+  --panel: #121a2f;
+  --panel-2: #18233d;
+  --line: rgba(255, 255, 255, 0.12);
+  --text: #f3f6ff;
+  --muted: #a9b5cf;
+  --accent: #8eb8ff;
+  --accent-ink: #07101f;
+
+  --native-inset-top: 0px;
+  --native-inset-right: 0px;
+  --native-inset-bottom: 0px;
+  --native-inset-left: 0px;
+
+  /* CSS env() covers iOS/mobile web. Android native WindowInsets are merged in
+     because Android WebView's safe-area env values do not reliably represent
+     system bars. Application code consumes only these platform-neutral vars. */
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--native-inset-top));
+  --safe-right: max(env(safe-area-inset-right, 0px), var(--native-inset-right));
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--native-inset-bottom));
+  --safe-left: max(env(safe-area-inset-left, 0px), var(--native-inset-left));
+  --safe-height: calc(var(--app-height, 100vh) - var(--safe-top) - var(--safe-bottom));
+}
+
+@supports (height: 100dvh) {
+  :root { --safe-height: calc(var(--app-height, 100dvh) - var(--safe-top) - var(--safe-bottom)); }
+}
+
+* { box-sizing: border-box; }
+html, body, #root { min-width: 0; height: var(--app-height, 100vh); margin: 0; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { overflow: hidden; background: var(--bg); color: var(--text); overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+button, input { font: inherit; }
+button { min-height: 36px; border: 0; border-radius: 10px; padding: 8px 12px; cursor: pointer; touch-action: manipulation; background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+.app-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: var(--app-height, 100vh);
+  min-width: 0;
+  overflow: hidden;
+  padding-inline: var(--safe-left) var(--safe-right);
+  background: radial-gradient(circle at top left, #18264b 0, var(--bg) 42%);
+}
+
+.top-bar, .bottom-bar { background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(18px); }
+.top-bar {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: calc(18px + var(--safe-top)) 22px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.top-bar h1 { margin: 2px 0 0; font-size: clamp(20px, 3vw, 32px); line-height: 1.05; }
+.eyebrow { margin: 0; color: var(--accent); font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.corner-button { flex: 0 0 auto; }
+.corner-menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 8px);
+  right: 12px;
+  display: grid;
+  gap: 6px;
+  width: min(240px, calc(100vw - var(--safe-left) - var(--safe-right) - 24px));
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-2);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .35);
+}
+.corner-menu button { width: 100%; text-align: left; }
+
+.main-scroll { min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 22px; }
+.main-scroll > * { width: min(900px, 100%); margin-inline: auto; }
+.hero-card, .diagnostics, .keyboard-card { border: 1px solid var(--line); border-radius: 20px; background: color-mix(in srgb, var(--panel) 88%, transparent); padding: clamp(18px, 4vw, 30px); }
+.hero-card + *, .diagnostics + * { margin-top: 18px; }
+.hero-card p { max-width: 66ch; margin: 18px 0 0; color: var(--muted); font-size: clamp(16px, 2.2vw, 20px); line-height: 1.55; }
+.pill { display: inline-flex; margin: 0 6px 6px 0; border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; color: var(--accent); font-size: 12px; font-weight: 750; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+h2 { margin: 4px 0 0; font-size: 20px; }
+.diagnostic-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.diagnostic { min-width: 0; border-radius: 14px; padding: 13px; background: var(--panel-2); }
+.diagnostic span { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+.diagnostic strong { display: block; margin-top: 4px; overflow-wrap: anywhere; font-size: 15px; }
+.diagnostic-wide { grid-column: 1 / -1; }
+.keyboard-card { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(220px, .75fr); gap: 22px; align-items: end; }
+.keyboard-card p:not(.eyebrow) { color: var(--muted); line-height: 1.5; }
+.keyboard-card label { display: grid; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.keyboard-card input { width: 100%; min-width: 0; min-height: 42px; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--bg); color: var(--text); }
+.bottom-bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 22px calc(12px + var(--safe-bottom)); border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+
+@media (max-width: 640px) {
+  .top-bar { align-items: center; padding-inline: 14px; }
+  .top-bar h1 { max-width: 14ch; }
+  .main-scroll { padding: 14px; }
+  .section-heading, .bottom-bar { align-items: stretch; flex-direction: column; }
+  .keyboard-card { grid-template-columns: minmax(0, 1fr); }
+  input, textarea, select { font-size: 16px; } /* Prevent iOS focus zoom. */
+}
+
+@media (pointer: coarse) {
+  button, input { min-height: 44px; }
+}
+
+@media (hover: hover) {
+  button:hover { filter: brightness(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .001ms !important; animation-duration: .001ms !important; }
+}

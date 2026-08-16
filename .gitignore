@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+src-tauri/target/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.env
+.env.*
+!.env.example
+
+# Generated mobile project build output stays ignored, but the generated project
+# itself should be committed after `npm run init` so native customizations remain visible.
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/local.properties
+src-tauri/gen/android/**/build/

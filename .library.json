@@ -1,0 +1,11 @@
+{
+  "name": "Tauri Vibe App",
+  "tagline": "A resilient Tauri app foundation.",
+  "description": "A cross-platform Tauri application built from the Tauri Vibe Template.",
+  "category": "Utilities",
+  "accent": "#8EB8FF",
+  "featured": false,
+  "sourceVisible": true,
+  "provenance": "library-managed",
+  "assetPattern": "^tauri-vibe-app-.*\\.apk$"
+}

@@ -1,0 +1,198 @@
+name: Release desktop
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version (for example 0.1.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macOS universal
+            os: macos-latest
+            bundle_args: --target universal-apple-darwin --bundles app,dmg
+            artifact_path: src-tauri/target/universal-apple-darwin/release/bundle
+          - label: Windows x64
+            os: windows-latest
+            bundle_args: --bundles nsis,msi
+            artifact_path: src-tauri/target/release/bundle
+          - label: Linux x64
+            os: ubuntu-22.04
+            bundle_args: --bundles appimage,deb
+            artifact_path: src-tauri/target/release/bundle
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    env:
+      SIGNING_CONFIGURED: ${{ secrets.APPLE_CERTIFICATE != '' }}
+      WINDOWS_SIGNING_CONFIGURED: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Tauri Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libfuse2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install both macOS Rust targets
+        if: runner.os == 'macOS'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - run: npm install
+      - run: npm run version:sync -- "v${{ inputs.version }}"
+      - run: npm run icons
+      - run: npm run doctor:release
+
+      - name: Import optional Windows signing certificate
+        if: runner.os == 'Windows' && env.WINDOWS_SIGNING_CONFIGURED == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
+          WINDOWS_TIMESTAMP_URL: ${{ secrets.WINDOWS_TIMESTAMP_URL }}
+        run: |
+          if (-not $env:WINDOWS_CERTIFICATE_THUMBPRINT -or -not $env:WINDOWS_TIMESTAMP_URL) {
+            throw "WINDOWS_CERTIFICATE_THUMBPRINT and WINDOWS_TIMESTAMP_URL are required when WINDOWS_CERTIFICATE is configured."
+          }
+          New-Item -ItemType Directory -Force -Path certificate | Out-Null
+          Set-Content -Path certificate/certificate-base64.txt -Value $env:WINDOWS_CERTIFICATE
+          certutil -decode certificate/certificate-base64.txt certificate/certificate.pfx | Out-Null
+          $password = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          Import-PfxCertificate -FilePath certificate/certificate.pfx -CertStoreLocation Cert:\CurrentUser\My -Password $password | Out-Null
+          $config = @{
+            bundle = @{
+              windows = @{
+                certificateThumbprint = $env:WINDOWS_CERTIFICATE_THUMBPRINT
+                digestAlgorithm = "sha256"
+                timestampUrl = $env:WINDOWS_TIMESTAMP_URL
+              }
+            }
+          }
+          $config | ConvertTo-Json -Depth 4 | Set-Content .github/windows-signing.generated.json
+
+      - name: Build bundles
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          extra=()
+          if [ "$RUNNER_OS" = "Windows" ] && [ -f .github/windows-signing.generated.json ]; then
+            extra+=(--config .github/windows-signing.generated.json)
+          fi
+          npm run tauri build -- ${{ matrix.bundle_args }} "${extra[@]}"
+
+      - name: Require signed + notarized macOS distribution
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$SIGNING_CONFIGURED" != "true" ]; then
+            echo "macOS release publishing requires APPLE_CERTIFICATE and related notarization secrets." >&2
+            exit 1
+          fi
+          APP="$(find '${{ matrix.artifact_path }}' -type d -name '*.app' -print -quit)"
+          test -n "$APP"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          spctl -a -vvv -t install "$APP"
+          xcrun stapler validate "$APP"
+
+      - name: Verify optional Windows signatures
+        if: runner.os == 'Windows' && env.WINDOWS_SIGNING_CONFIGURED == 'true'
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Path '${{ matrix.artifact_path }}' -Recurse -File | Where-Object { $_.Extension -in '.exe', '.msi' }
+          if (-not $files) { throw "No Windows release files found to verify." }
+          foreach ($file in $files) {
+            $signature = Get-AuthenticodeSignature $file.FullName
+            if ($signature.Status -ne 'Valid') {
+              throw "Invalid Windows signature on $($file.FullName): $($signature.Status)"
+            }
+          }
+
+      - name: Stage release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          find '${{ matrix.artifact_path }}' -type f \( \
+            -name '*.dmg' -o -name '*.msi' -o -name '*-setup.exe' -o \
+            -name '*.AppImage' -o -name '*.deb' \
+          \) -exec cp {} release-assets/ \;
+          test -n "$(find release-assets -type f -print -quit)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ runner.os }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release-assets
+          merge-multiple: true
+      - name: Publish assets once all platforms succeeded
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists; replacing matching assets."
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
+          gh release upload "$TAG" release-assets/* --clobber

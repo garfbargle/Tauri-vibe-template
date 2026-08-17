@@ -54,6 +54,12 @@ fs.writeFileSync("src-tauri/src/main.rs", mainRs);
 const library = JSON.parse(fs.readFileSync(".library.json", "utf8"));
 library.name = name;
 library.assetPattern = `^${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-.*\\.apk$`;
+library.provenance = "library-managed";
+library.managedSigning = {
+  ...(library.managedSigning ?? {}),
+  packageName: identifier,
+  tagPrefix: library.managedSigning?.tagPrefix || "android-v",
+};
 writeJson(".library.json", library);
 
 writeJson("template.config.json", { initialized: true, name, slug, identifier });

@@ -21,7 +21,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
       latest: ${{ steps.release.outputs.latest }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Compare tracked version with latest Library release
         id: release
@@ -94,7 +94,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:

@@ -9,7 +9,10 @@ This repository is also the reference implementation for CI/release policy acros
 - routine GitHub CI is manual-only;
 - a commit on `main` is cheap unless it contains a version newer than the latest Android release;
 - the only normal automatic build is a genuine Library release candidate;
+- Library enrollment is declared from the app repository itself;
 - Android distribution signing belongs to Library, not the app repository.
+
+The template repository itself is intentionally initialized as **Tauri Vibe App** (`com.example.taurivibe`) so it doubles as an end-to-end Library integration test. Its first merge with a version newer than the latest `android-v*` release is expected to produce a real installable Library-managed APK.
 
 ## Start a new app
 
@@ -21,7 +24,7 @@ npm run init -- --name "My App" --identifier com.example.myapp
 npm run tauri dev
 ```
 
-`npm run init` updates the display name, npm/Rust identifiers, bundle identifier, Library metadata, HTML title, and icon set. If an Android SDK is configured it also generates the current Tauri Android scaffold and applies the native platform overlay. To explicitly control that step:
+`npm run init` updates the display name, npm/Rust identifiers, bundle identifier, Library storefront metadata, repo-side `managedSigning.packageName`, HTML title, and icon set. If an Android SDK is configured it also generates the current Tauri Android scaffold and applies the native platform overlay. To explicitly control that step:
 
 ```sh
 npm run init -- --name "My App" --identifier com.example.myapp --android
@@ -33,6 +36,8 @@ A custom slug can be supplied with `--slug my-app`.
 After initialization, replace `assets/app-icon.svg` with the real square app mark and run `npm run icons` again. Commit the generated `src-tauri/icons` directory. Once Android has been initialized on a development machine, **commit `src-tauri/gen/android`**; the generated project contains native behavior that should be code-reviewed, not silently recreated at release time.
 
 If Android was skipped because the SDK was unavailable, the app is not release-ready yet. Configure the SDK, run `npm run android:prepare`, review the generated project, commit it, and run `npm run doctor:release` before the first Library release.
+
+The seed repository is the one exception to the committed-scaffold rule: `garfbargle/Tauri-vibe-template` may bootstrap-generate Android inside its own release workflow so the template can remain a clean source template while still acting as a real Library smoke app. Repositories created from it do not get that exception.
 
 ## What this template guarantees
 
@@ -81,13 +86,13 @@ The sample Rust command demonstrates the rule for expensive native work: a Tauri
 
 ## Android workflow
 
-The repository owns both the generated native scaffold and the overlay used to keep it current.
+Initialized product repositories own both the generated native scaffold and the overlay used to keep it current.
 
 ```sh
 npm run android:prepare
 ```
 
-creates the Android project when missing and applies the repository-owned overlay. `npm run android:reset` deliberately recreates the scaffold from scratch before applying the same overlay; use that when testing a regeneration, not as normal release behavior.
+creates the Android project when missing and applies the repository-owned overlay. `npm run android:reset` deliberately recreates the scaffold from scratch before applying the same overlay; use that when testing a regeneration, not as normal product release behavior.
 
 The overlay enforces:
 
@@ -105,7 +110,7 @@ Validate release invariants with:
 npm run doctor:release
 ```
 
-`doctor:release` fails if an initialized product has no Android scaffold. Do **not** use `tauri android init` as a repair step without rerunning `npm run android:prepare` afterward and reviewing the resulting native diff.
+`doctor:release` requires both an initialized identity and an Android scaffold. Plain `npm run doctor` can still validate a repository that intentionally used `--skip-android`. Do **not** use `tauri android init` as a repair step without rerunning `npm run android:prepare` afterward and reviewing the resulting native diff.
 
 ## Local device deploys
 
@@ -123,7 +128,11 @@ Set `INCLUDE_EMULATORS=1` to include emulators. Physical devices are deduplicate
 
 ## Library integration
 
-`.library.json` is present from day one with `provenance: "library-managed"`. The initializer updates its app name and APK asset pattern.
+`.library.json` is present from day one with `provenance: "library-managed"` and a `managedSigning` declaration. The initializer updates its app name, APK asset pattern, and package name to match the new Tauri identifier.
+
+A normal Tauri app therefore does **not** need a separate PR to Library just to enroll. When a successful default-branch workflow emits `library-unsigned-apk`, Library treats it as a signing candidate. The protected Library signer then reads `.library.json` from the exact commit that produced the artifact, validates the declared package against the APK, signs it, and creates the stable Android release.
+
+Library still supports a central hard-pinned enrollment for apps that need a stronger separate authorization boundary; central enrollment takes precedence over repo-side metadata.
 
 ### Automatic release rule
 
@@ -138,17 +147,22 @@ A version bump is therefore explicit Android release intent. Ordinary commits on
 
 For a real release candidate the workflow:
 
-1. verifies the tracked Android project and template invariants;
-2. builds an arm64 release APK;
-3. verifies the APK package ID;
-4. verifies that the APK is actually **unsigned**;
-5. uploads exactly one artifact named `library-unsigned-apk`.
+1. prepares and verifies the Android/native invariants;
+2. requires a committed Android scaffold for every repository except the template seed itself;
+3. builds an arm64 release APK;
+4. verifies the APK package ID;
+5. verifies that the APK is actually **unsigned**;
+6. uploads exactly one artifact named `library-unsigned-apk`.
 
-That artifact name is a protocol. **Do not use it from manual checks or ad-hoc workflows.** Library's webhook treats a successful managed-repository run on `main` containing that artifact as a request for managed signing.
+That artifact name is a protocol. **Do not use it from manual checks or ad-hoc workflows.** Library's webhook treats a successful owned default-branch run containing that artifact as a managed-signing candidate; the protected signer is what authoritatively accepts or rejects repo-side enrollment.
 
 Library validates the APK again, signs it with the central distribution identity, and creates the stable `android-vX.Y.Z` release. The app repository never receives the Library signing key.
 
 Do not hand-create Android release tags. Desktop releases may continue using `vX.Y.Z`; the separate `android-vX.Y.Z` namespace prevents collisions between desktop and Library distribution.
+
+### Template smoke release
+
+This repository's tracked version is `0.1.0`, its identity is initialized, and its `.library.json` self-enrolls `com.example.taurivibe`. If no `android-v0.1.0` release exists, merging the release-convention change after Library's repo-side enrollment support is live should build `library-unsigned-apk`, have Library sign it, and publish `android-v0.1.0`. After that, ordinary commits at 0.1.0 stop at the cheap gate.
 
 ## Manual CI
 
@@ -167,7 +181,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -
 cargo test --manifest-path src-tauri/Cargo.toml --all-features
 ```
 
-The manual CI workflow also checks that `npm run android:prepare` leaves the committed Android scaffold unchanged.
+For initialized product repositories, manual Android CI should also verify that `npm run android:prepare` leaves the committed Android scaffold unchanged.
 
 ## Versioning
 
@@ -221,7 +235,7 @@ Unsigned Windows builds remain possible when these are absent, but browser downl
 
 ## Agent guidance and PR release notes
 
-`AGENTS.md` is part of the template contract. It records the platform invariants above, the CI/release rules, and the PR release-note format inherited from Orbit.
+`AGENTS.md` is part of the template contract. It records the platform invariants above, the CI/release rules, repo-side Library enrollment, and the PR release-note format inherited from Orbit.
 
 Every PR should classify its user-facing impact as exactly one of `feature`, `improvement`, `fix`, or `skip`. CI, documentation, refactors, dependency work, and release plumbing normally use `skip`. Version-bump-only PRs normally use `skip`; the bump is release intent, not itself a user-facing change.
 
@@ -234,7 +248,7 @@ src/App.tsx                            platform diagnostics/conformance UI
 src/styles.css                         safe full-screen shell primitives
 src-tauri/src/lib.rs                   minimal Rust/Tauri boundary
 src-tauri/capabilities/                least-privilege platform capabilities
-scripts/init-template.mjs              one-command identity setup
+scripts/init-template.mjs              one-command identity + Library enrollment setup
 scripts/prepare-android.mjs            reproducible Android native overlay
 scripts/template-doctor.mjs            invariant checker
 scripts/sync-version-from-tag.mjs      three-file version synchronization
@@ -242,7 +256,7 @@ scripts/deploy-local.sh                macOS + Android local sideloading
 .github/workflows/ci.yml               manual frontend/Rust/platform checks
 .github/workflows/library-unsigned-apk.yml
 .github/workflows/release-desktop.yml
-.library.json                          Library storefront/build contract
+.library.json                          Library storefront + managed-signing contract
 AGENTS.md                              rules for humans and coding agents
 ```
 

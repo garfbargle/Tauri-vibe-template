@@ -84,6 +84,8 @@ if (fs.existsSync(androidDir)) {
     ) ok("Android fold/DeX/external-display manifest invariants are present");
     else fail("Android manifest is missing fold/DeX/external-display invariants");
   } else fail("Android manifest is missing");
+} else if (requireInitialized) {
+  fail("Android project is required for release; run npm run android:prepare and commit src-tauri/gen/android");
 } else {
   warn("Android project not generated yet; run npm run android:prepare when the SDK is available");
 }

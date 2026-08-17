@@ -31,13 +31,17 @@ jobs:
         run: |
           set -euo pipefail
           CURRENT="$(node -p "require('./src-tauri/tauri.conf.json').version")"
-          INITIALIZED="$(node -p "require('./template.config.json').initialized ? 'true' : 'false'")"
+          INITIALIZED="$(node -p "require('./template.config.json').initialized ? 'true' : 'false')"
+          SEED_REPO=false
+          if [ "$GITHUB_REPOSITORY" = "garfbargle/Tauri-vibe-template" ]; then
+            SEED_REPO=true
+          fi
           echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
 
-          if [ "$INITIALIZED" != "true" ]; then
+          if [ "$INITIALIZED" != "true" ] && [ "$SEED_REPO" != "true" ]; then
             echo "latest=" >> "$GITHUB_OUTPUT"
             echo "should_release=false" >> "$GITHUB_OUTPUT"
-            echo "Template repository is not an initialized product; skipping release." >> "$GITHUB_STEP_SUMMARY"
+            echo "Repository has not run template initialization; skipping release." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
@@ -123,7 +127,13 @@ jobs:
         run: npm run android:prepare
 
       - name: Verify template and release invariants
-        run: npm run doctor:release
+        shell: bash
+        run: |
+          if [ "$GITHUB_REPOSITORY" = "garfbargle/Tauri-vibe-template" ]; then
+            TAURI_VIBE_TEMPLATE_SEED=1 npm run doctor:release
+          else
+            npm run doctor:release
+          fi
 
       - name: Verify Android scaffold policy
         shell: bash

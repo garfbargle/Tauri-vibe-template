@@ -5,6 +5,7 @@ const root = path.resolve(import.meta.dirname, "..");
 process.chdir(root);
 const requireInitialized = process.argv.includes("--require-initialized");
 const requireAndroid = process.argv.includes("--require-android");
+const allowTemplateSeed = process.env.TAURI_VIBE_TEMPLATE_SEED === "1";
 let failures = 0;
 let warnings = 0;
 
@@ -22,7 +23,8 @@ const html = fs.readFileSync("index.html", "utf8");
 const css = fs.readFileSync("src/styles.css", "utf8");
 const geometry = fs.readFileSync("src/lib/platformGeometry.ts", "utf8");
 
-if (requireInitialized && !template.initialized) fail("template has not been initialized");
+if (requireInitialized && !template.initialized && !allowTemplateSeed) fail("template has not been initialized");
+else if (!template.initialized && allowTemplateSeed) ok("template seed smoke-release override enabled");
 else if (!template.initialized) warn("template is intentionally still using starter identity");
 else ok("template identity initialized");
 

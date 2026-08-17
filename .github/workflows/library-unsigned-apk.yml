@@ -176,7 +176,7 @@ jobs:
           cp "$APK" "library-artifact/${SLUG}-${RELEASE_VERSION}-aarch64-release-unsigned.apk"
 
       - name: Upload unsigned APK for Library
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: library-unsigned-apk
           path: library-artifact/*.apk

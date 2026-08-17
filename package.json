@@ -11,7 +11,7 @@
     "tauri": "tauri",
     "init": "node scripts/init-template.mjs",
     "doctor": "node scripts/template-doctor.mjs",
-    "doctor:release": "node scripts/template-doctor.mjs --require-initialized",
+    "doctor:release": "node scripts/template-doctor.mjs --require-initialized --require-android",
     "android:prepare": "node scripts/prepare-android.mjs",
     "android:reset": "node scripts/prepare-android.mjs --fresh",
     "icons": "tauri icon assets/app-icon.svg",

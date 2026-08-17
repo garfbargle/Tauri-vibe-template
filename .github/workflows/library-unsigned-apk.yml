@@ -119,14 +119,30 @@ jobs:
       - name: Generate platform icons
         run: npm run icons
 
-      - name: Patch tracked Android project
+      - name: Prepare Android project
         run: npm run android:prepare
 
       - name: Verify template and release invariants
         run: npm run doctor:release
 
-      - name: Verify tracked Android scaffold is current
-        run: git diff --exit-code -- src-tauri/gen/android
+      - name: Verify Android scaffold policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REPOSITORY" = "garfbargle/Tauri-vibe-template" ]; then
+            echo "Template seed repository may bootstrap-generate Android as an integration smoke test." >> "$GITHUB_STEP_SUMMARY"
+          else
+            if ! git ls-files --error-unmatch src-tauri/gen/android/app/build.gradle.kts >/dev/null 2>&1; then
+              echo "Initialized apps must commit src-tauri/gen/android before Library release." >&2
+              exit 1
+            fi
+            git diff --exit-code -- src-tauri/gen/android
+            if [ -n "$(git status --porcelain --untracked-files=all -- src-tauri/gen/android)" ]; then
+              echo "Android preparation produced uncommitted native files." >&2
+              git status --short -- src-tauri/gen/android >&2
+              exit 1
+            fi
+          fi
 
       - name: Build unsigned release APK
         run: npm run tauri android build -- --apk --target aarch64

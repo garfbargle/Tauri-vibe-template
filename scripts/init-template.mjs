@@ -54,6 +54,12 @@ fs.writeFileSync("src-tauri/src/main.rs", mainRs);
 const library = JSON.parse(fs.readFileSync(".library.json", "utf8"));
 library.name = name;
 library.assetPattern = `^${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-.*\\.apk$`;
+library.provenance = "library-managed";
+library.managedSigning = {
+  ...(library.managedSigning ?? {}),
+  packageName: identifier,
+  tagPrefix: library.managedSigning?.tagPrefix || "android-v",
+};
 writeJson(".library.json", library);
 
 writeJson("template.config.json", { initialized: true, name, slug, identifier });
@@ -74,7 +80,7 @@ if (!skipAndroid && (forceAndroid || hasAndroidEnv)) {
   run(process.execPath, ["scripts/prepare-android.mjs", "--fresh"]);
 } else if (!skipAndroid) {
   console.log("Android SDK not detected; skipping local Android generation.");
-  console.log("Library CI will generate it, or run `npm run android:prepare` when the SDK is configured.");
+  console.log("Before the first Library release, run `npm run android:prepare`, review the generated native project, and commit `src-tauri/gen/android`.");
 }
 
 run(process.execPath, ["scripts/template-doctor.mjs", "--require-initialized"]);

@@ -4,6 +4,8 @@ import path from "node:path";
 const root = path.resolve(import.meta.dirname, "..");
 process.chdir(root);
 const requireInitialized = process.argv.includes("--require-initialized");
+const requireAndroid = process.argv.includes("--require-android");
+const allowTemplateSeed = process.env.TAURI_VIBE_TEMPLATE_SEED === "1";
 let failures = 0;
 let warnings = 0;
 
@@ -21,7 +23,8 @@ const html = fs.readFileSync("index.html", "utf8");
 const css = fs.readFileSync("src/styles.css", "utf8");
 const geometry = fs.readFileSync("src/lib/platformGeometry.ts", "utf8");
 
-if (requireInitialized && !template.initialized) fail("template has not been initialized");
+if (requireInitialized && !template.initialized && !allowTemplateSeed) fail("template has not been initialized");
+else if (!template.initialized && allowTemplateSeed) ok("template seed smoke-release override enabled");
 else if (!template.initialized) warn("template is intentionally still using starter identity");
 else ok("template identity initialized");
 
@@ -48,6 +51,10 @@ if (/body\s*\{[^}]*min-width\s*:\s*[1-9]/s.test(css)) fail("body must not impose
 else ok("document has no desktop-only minimum width");
 if (library.provenance === "library-managed") ok("Library provenance is library-managed"); else fail("Library provenance must be library-managed");
 if (library.assetPattern?.startsWith(`^${pkg.name}-`)) ok("Library asset pattern matches package slug"); else fail("Library asset pattern does not match package slug");
+if (library.managedSigning?.packageName === tauri.identifier) ok("Library managed-signing package matches Tauri identifier");
+else fail(`Library managedSigning.packageName must match Tauri identifier ${tauri.identifier}`);
+if ((library.managedSigning?.tagPrefix || "android-v") === "android-v") ok("Library Android tag prefix is android-v");
+else fail("Library managedSigning.tagPrefix must be android-v");
 
 const androidDir = path.join("src-tauri", "gen", "android");
 if (fs.existsSync(androidDir)) {
@@ -84,6 +91,8 @@ if (fs.existsSync(androidDir)) {
     ) ok("Android fold/DeX/external-display manifest invariants are present");
     else fail("Android manifest is missing fold/DeX/external-display invariants");
   } else fail("Android manifest is missing");
+} else if (requireAndroid) {
+  fail("Android project is required for release; run npm run android:prepare and commit src-tauri/gen/android");
 } else {
   warn("Android project not generated yet; run npm run android:prepare when the SDK is available");
 }

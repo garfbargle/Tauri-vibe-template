@@ -23,7 +23,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
       latest: ${{ steps.release.outputs.latest }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Compare tracked version with latest Library release
         id: release
@@ -96,19 +96,19 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
 
       - name: Install Android SDK and NDK
         run: |
@@ -178,7 +178,7 @@ jobs:
           cp "$APK" "library-artifact/${SLUG}-${RELEASE_VERSION}-aarch64-release-unsigned.apk"
 
       - name: Upload unsigned APK for Library
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: library-unsigned-apk
           path: library-artifact/*.apk

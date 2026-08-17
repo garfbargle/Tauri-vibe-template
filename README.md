@@ -12,7 +12,7 @@ This repository is also the reference implementation for CI/release policy acros
 - Library enrollment is declared from the app repository itself;
 - Android distribution signing belongs to Library, not the app repository.
 
-The template repository itself is intentionally initialized as **Tauri Vibe App** (`com.example.taurivibe`) so it doubles as an end-to-end Library integration test. Its first merge with a version newer than the latest `android-v*` release is expected to produce a real installable Library-managed APK.
+The seed repository itself doubles as an end-to-end Library integration test using **Tauri Vibe App** (`com.example.taurivibe`). `template.config.json` deliberately remains `initialized: false` so repos created from this template start inert; the release workflow contains a seed-repository-only override for `garfbargle/Tauri-vibe-template` so this one repository can still publish a real smoke-test APK.
 
 ## Start a new app
 
@@ -110,7 +110,7 @@ Validate release invariants with:
 npm run doctor:release
 ```
 
-`doctor:release` requires both an initialized identity and an Android scaffold. Plain `npm run doctor` can still validate a repository that intentionally used `--skip-android`. Do **not** use `tauri android init` as a repair step without rerunning `npm run android:prepare` afterward and reviewing the resulting native diff.
+`doctor:release` requires both an initialized identity and an Android scaffold for normal product repositories. Plain `npm run doctor` can still validate a repository that intentionally used `--skip-android`. The template seed workflow supplies its explicit smoke-test override when running the release doctor. Do **not** use `tauri android init` as a repair step without rerunning `npm run android:prepare` afterward and reviewing the resulting native diff.
 
 ## Local device deploys
 
@@ -138,10 +138,11 @@ Library still supports a central hard-pinned enrollment for apps that need a str
 
 `.github/workflows/library-unsigned-apk.yml` is the **only normal automatic workflow**. It runs on commits to `main`, but the first job is deliberately cheap:
 
-1. read the committed stable `X.Y.Z` version;
-2. find the greatest stable `android-vX.Y.Z` GitHub release;
-3. stop successfully if the committed version is not newer;
-4. only then install Node/Java/Android/Rust tooling and build.
+1. require product repositories to have run template initialization (the seed repo is the sole explicit exception);
+2. read the committed stable `X.Y.Z` version;
+3. find the greatest stable `android-vX.Y.Z` GitHub release;
+4. stop successfully if the committed version is not newer;
+5. only then install Node/Java/Android/Rust tooling and build.
 
 A version bump is therefore explicit Android release intent. Ordinary commits on `main` exercise only the gate.
 
@@ -162,7 +163,9 @@ Do not hand-create Android release tags. Desktop releases may continue using `vX
 
 ### Template smoke release
 
-This repository's tracked version is `0.1.0`, its identity is initialized, and its `.library.json` self-enrolls `com.example.taurivibe`. If no `android-v0.1.0` release exists, merging the release-convention change after Library's repo-side enrollment support is live should build `library-unsigned-apk`, have Library sign it, and publish `android-v0.1.0`. After that, ordinary commits at 0.1.0 stop at the cheap gate.
+This repository tracks version `0.1.0` and `.library.json` self-enrolls `com.example.taurivibe`. Its inherited template config remains deliberately uninitialized, but the release workflow recognizes **only** the canonical `garfbargle/Tauri-vibe-template` repository as the seed smoke app. If no `android-v0.1.0` release exists, merging the release-convention change after Library's repo-side enrollment support is live should build `library-unsigned-apk`, have Library sign it, and publish `android-v0.1.0`. After that, ordinary commits at 0.1.0 stop at the cheap gate.
+
+Repos created from this template do not inherit that exception: they must run `npm run init`, which marks their own `template.config.json` initialized and rewrites the Library package declaration before a release is eligible.
 
 ## Manual CI
 

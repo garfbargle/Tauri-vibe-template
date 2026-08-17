@@ -1,11 +1,15 @@
 {
   "name": "Tauri Vibe App",
   "tagline": "A resilient Tauri app foundation.",
-  "description": "A cross-platform Tauri application built from the Tauri Vibe Template.",
+  "description": "A cross-platform Tauri application built from the Tauri Vibe Template and published as a Library integration test.",
   "category": "Utilities",
   "accent": "#8EB8FF",
   "featured": false,
   "sourceVisible": true,
   "provenance": "library-managed",
-  "assetPattern": "^tauri-vibe-app-.*\\.apk$"
+  "assetPattern": "^tauri-vibe-app-.*\\.apk$",
+  "managedSigning": {
+    "packageName": "com.example.taurivibe",
+    "tagPrefix": "android-v"
+  }
 }

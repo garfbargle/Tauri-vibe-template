@@ -28,13 +28,44 @@ This repository is a Tauri 2 + React starter whose value is the platform behavio
 - Tauri commands that perform blocking filesystem, process, crypto, database, or network work should be async and move blocking work to `tauri::async_runtime::spawn_blocking` (or use a genuinely async implementation).
 - Treat Rust/TypeScript IPC payloads as a versioned contract. Prefer camelCase serialization for Rust structs mirrored in TypeScript.
 
-## Releases and Library
+## CI and releases
 
-- `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` versions must agree. Use `npm run version:sync -- vX.Y.Z`.
-- Library owns Android distribution signing. `.github/workflows/library-unsigned-apk.yml` intentionally emits an unsigned APK and verifies that it is unsigned before upload.
-- `.library.json` has `provenance: "library-managed"`; its `assetPattern` must continue matching the generated artifact name.
-- Desktop distribution is manual and version-driven. macOS release publishing must be Developer-ID signed and notarized; do not publish a downloadable DMG as a normal release when signing is absent.
+- Routine CI is manual. Agents may run `.github/workflows/ci.yml` with `workflow_dispatch`, optionally supplying a branch, tag, or SHA. Do not add automatic `push`, `pull_request`, or scheduled CI for normal checks.
+- The only normal automatic Actions trigger is the Library Android release workflow on commits to `main`.
+- A version bump is explicit release intent. `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` versions must agree. Use `npm run version:sync -- vX.Y.Z`.
+- Library Android releases use stable tags of the form `android-vX.Y.Z`. The release workflow must compare the tracked stable version with the newest stable `android-v*` GitHub release before installing SDKs or building.
+- If the tracked version is not newer, the automatic release workflow exits successfully without doing expensive work.
+- Only the genuine release path may upload an artifact named `library-unsigned-apk`. Manual checks must never use that artifact name because Library treats it as a managed-signing handoff.
+- Library owns Android distribution signing. App repositories build and validate an unsigned APK; they do not receive Library's signing key.
+- Do not hand-create Android release tags. Library creates the stable `android-vX.Y.Z` release after validating and signing the APK.
+- Preserve app-specific release validation when adopting this template. Product-specific native assets or runtime requirements belong in the release workflow before the Library artifact is uploaded.
+- Desktop distribution remains manual and version-driven unless the product explicitly adopts another policy. macOS release publishing must be Developer-ID signed and notarized; do not publish a downloadable DMG as a normal release when signing is absent.
 - Local Android sideloads use a persistent developer key under `~/.tauri-vibe/<identifier>` so upgrades do not unexpectedly change signatures.
+
+## Pull requests and release notes
+
+Every pull request must include a release-note section in its description:
+
+```markdown
+## Release note
+Release type: feature | improvement | fix | skip
+
+<one short user-facing sentence, or `None` when the release type is `skip`>
+```
+
+Rules:
+
+- Choose exactly one release type.
+- Write the release note for an app user, not for a maintainer. Describe the visible outcome, not implementation details.
+- Use `feature` for new user-facing capabilities.
+- Use `improvement` for meaningful UX, performance, reliability, or behavior improvements.
+- Use `fix` for user-visible bug fixes.
+- Use `skip` for CI, refactors, tests, documentation, dependency maintenance, release plumbing, and other changes that should not appear in user-facing release notes.
+- Keep the release note to one concise sentence whenever possible.
+- Do not use commit messages or PR titles as substitutes for the release note.
+- Version-bump-only PRs should normally use `skip`; release tooling can compile user-facing notes from merged PRs since the previous release.
+
+When creating or updating a PR, ensure this section is present and accurate before considering the PR complete.
 
 ## Before merging
 
@@ -48,5 +79,7 @@ cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml --all-features
 ```
+
+For remote/platform checks, dispatch the manual CI workflow against the branch or commit being validated.
 
 When touching platform geometry, also verify the diagnostics screen on at least one narrow touch device with the keyboard open and, when available, rotation/fold/DeX transitions.

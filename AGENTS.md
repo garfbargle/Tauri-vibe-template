@@ -18,6 +18,7 @@ This repository is a Tauri 2 + React starter whose value is the platform behavio
 
 - `scripts/prepare-android.mjs` is the source of truth for the native overlay. It generates the current Tauri Android scaffold when missing and patches the inset bridge, explicit core-ktx dependency, R8 rule, resizable activity, and configuration-change behavior.
 - After running Android initialization in a real product repository, commit `src-tauri/gen/android` so native changes are reviewable and a fresh checkout builds identically.
+- The `garfbargle/Tauri-vibe-template` seed repository is the one deliberate exception: its own Library smoke release may bootstrap-generate Android in CI so the template itself remains a usable source template. Repositories created from it must commit their generated Android scaffold before Library release.
 - Never run `tauri android init` as a recovery step without immediately running `npm run android:prepare` and `npm run doctor:release` afterward.
 - Keep Android application/package identity synchronized with `src-tauri/tauri.conf.json`.
 
@@ -35,7 +36,9 @@ This repository is a Tauri 2 + React starter whose value is the platform behavio
 - A version bump is explicit release intent. `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json` versions must agree. Use `npm run version:sync -- vX.Y.Z`.
 - Library Android releases use stable tags of the form `android-vX.Y.Z`. The release workflow must compare the tracked stable version with the newest stable `android-v*` GitHub release before installing SDKs or building.
 - If the tracked version is not newer, the automatic release workflow exits successfully without doing expensive work.
-- Only the genuine release path may upload an artifact named `library-unsigned-apk`. Manual checks must never use that artifact name because Library treats it as a managed-signing handoff.
+- Only the genuine release path may upload an artifact named `library-unsigned-apk`. Manual checks must never use that artifact name because Library treats it as a managed-signing candidate.
+- Repo-side Library enrollment lives in `.library.json`: keep `provenance: "library-managed"` and `managedSigning.packageName` synchronized with the Tauri identifier. New apps should not need a separate Library PR just to enroll.
+- The protected Library signer resolves `.library.json` from the exact commit that produced the artifact and verifies that the declared package matches the APK before signing.
 - Library owns Android distribution signing. App repositories build and validate an unsigned APK; they do not receive Library's signing key.
 - Do not hand-create Android release tags. Library creates the stable `android-vX.Y.Z` release after validating and signing the APK.
 - Preserve app-specific release validation when adopting this template. Product-specific native assets or runtime requirements belong in the release workflow before the Library artifact is uploaded.

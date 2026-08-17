@@ -2,6 +2,12 @@
 
 This repository is a Tauri 2 + React starter whose value is the platform behavior already encoded in it. Product code may change freely; the invariants below should only change deliberately and with device/release verification.
 
+## Visual design
+
+- Product UI follows `docs/GARFBARGLE_OS_STYLE.md` as the visual and interaction authority. New or substantially changed UI should feel like a first-party app from the same Garfbargle OS rather than inventing a repository-specific design language.
+- Treat shared OS chrome—materials, tint behavior, geometry, typography, controls, interaction states, motion, and responsive/touch sizing—as system-owned. App-specific content, illustrations, and content themes may keep their own character within that chrome.
+- Prefer the spec's semantic tokens and shared primitives over scattered literal styling. On touch/coarse-pointer layouts, keep required actions at touch sizes and shed lower-priority controls into overflow rather than shrinking targets.
+
 ## Platform geometry
 
 - Keep `<meta name="viewport" ... viewport-fit=cover>` in `index.html`.
